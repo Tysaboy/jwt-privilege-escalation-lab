@@ -1,1 +1,134 @@
-# jwt-privilege-escalation-lab
+# 🛡️ JWT Authentication & Privilege Escalation Lab (Localhost)
+
+A vulnerable-by-design Flask API demonstrating how weak JWT secret management can enable **vertical privilege escalation**.
+
+> ⚠️ Scope: localhost only (`127.0.0.1`). Do **not** use these techniques against systems you don’t own or have explicit permission to test.
+
+---
+
+## 🚀 Objective
+
+Start with standard `user` credentials, obtain a JWT, and demonstrate how a weak/guessable signing secret can allow forging an **admin** token that unlocks `/admin`.
+
+This repo includes both:
+- a **vulnerable** implementation (`src/app.py`)
+- a **hardened** implementation (`src/secure_app.py`)
+
+---
+
+## 🧠 Skills Demonstrated
+
+- JWT structure and claims (`sub`, `role`, `iss`, `iat`, `exp`)
+- HS256 signing and why secret entropy matters
+- Blackbox thinking: enumerate, observe, test, escalate
+- Secure secret handling with environment variables
+- Defense-in-depth (short expiry, issuer validation, minimum claim requirements)
+
+---
+
+## 🛠️ Lab Environment
+
+- Python + Flask
+- SQLite (local file `app.db`)
+- PyJWT (HS256)
+
+Endpoints:
+- `POST /api/login` → returns JWT
+- `GET /api/me` → returns decoded claims (requires auth)
+- `GET /admin` → admin-only (requires `role=admin`)
+
+---
+
+## 📂 Repo Layout
+
+```
+jwt-privilege-escalation-lab/
+├── README.md
+├── requirements.txt
+├── SECURITY.md
+├── .env.example
+├── src/
+│   ├── app.py          # vulnerable-by-design
+│   └── secure_app.py   # patched version
+├── notes/
+│   └── workflow.md     # reproducible steps + observations
+├── docs/
+│   └── threat-model.md
+└── screenshots/        # (optional) proof screenshots
+```
+
+---
+
+## ✅ Setup
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Set a secret (for the vulnerable lab you can intentionally choose something weak; for the secure app choose something strong):
+
+```bash
+export JWT_SECRET="dev-weak-secret"
+```
+
+Run the vulnerable app:
+
+```bash
+python3 src/app.py
+```
+
+---
+
+## 🧪 Basic Usage
+
+Login:
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"password"}'
+```
+
+Use the returned token:
+
+```bash
+curl -s http://127.0.0.1:8080/api/me \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+Admin endpoint:
+
+```bash
+curl -i http://127.0.0.1:8080/admin \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+---
+
+## 🛡️ Hardening (Patched Version)
+
+Run the secure app:
+
+```bash
+export JWT_SECRET="$(openssl rand -base64 32)"
+python3 src/secure_app.py
+```
+
+Key improvements:
+- secret must be set via env var
+- rejects weak secrets (minimum length)
+- same JWT validation rules but forces safer configuration
+
+---
+
+## 📌 Notes
+
+See `notes/workflow.md` for a clean “pentest-style” walkthrough of what you observed and how you verified the escalation in this controlled lab.
+
+---
+
+## Author
+
+Gildas Yegnon — University of Calgary — CompTIA Security+ — Offensive Security Focus
